@@ -5,5 +5,6 @@ draft
 data
 notebooks-error/
 __pycache__
+.ipynb_checkpoints
 submitit_jobs/
 
