@@ -4,5 +4,6 @@ results
 draft
 data
 notebooks-error/
+__pycache__
 submitit_jobs/
 
