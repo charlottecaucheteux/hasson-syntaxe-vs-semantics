@@ -11,7 +11,7 @@ from . import constants, paths
 # add their own script to path for simplicity
 
 
-def format_text(text):
+def format_text(text, lower=True):
     text = text.replace("\n", " ")
     text = text.replace(" -- ", ". ")
     text = text.replace(" – ", ", ")
@@ -29,7 +29,8 @@ def format_text(text):
     text = text.replace("…", ". ")
     text = text.replace("-", " ")
     text = text.replace("  ", " ")
-    text = text.lower()
+    if lower:
+        text = text.lower()
     return text
 
 
@@ -57,9 +58,9 @@ def split_with_index(s, c=" "):
         p = q
 
 
-def format_tokens(x):
+def format_tokens(x, lower=False):
     x = np.array(x)
-    fx = [format_text(" " + xi + " ").strip() for xi in x.reshape(-1)]
+    fx = [format_text(" " + xi + " ", lower=lower).strip() for xi in x.reshape(-1)]
     fx = np.array(fx).reshape(x.shape)
     return fx
 
@@ -81,10 +82,10 @@ def match_transcript_tokens(transcript_tokens, gentle_tokens):
     return raw_words
 
 
-def preproc_stim(df, text_fname):
+def preproc_stim(df, text_fname, lower=False):
     text = open(text_fname).read()
 
-    text = format_text(text)
+    text = format_text(text, lower=lower)
     transcript_tokens = space_tokenizer(text)
     gentle_tokens = gentle_tokenizer(text)
     assert len(gentle_tokens) == len(df)
@@ -93,7 +94,7 @@ def preproc_stim(df, text_fname):
     assert len(spans) == len(gentle_tokens)
 
     tokens = [w[0] for w in spans]
-    tokens = format_tokens(tokens)
+    tokens = format_tokens(tokens, lower=lower)
     # text = replace_special_character_chains(text)
     # text = text.split()
     # text = [w for w in text if w if len(w.strip(string.punctuation))>0]
@@ -136,11 +137,11 @@ def get_timing(task, subtask):
     return onset, duration
 
 
-def get_stimulus(task, add_phones=False, add_pos=False):
+def get_stimulus(task, add_phones=False, add_pos=False, lower=True):
     stim_fname = paths.gentle_path / task / "align.csv"
     text_fname = paths.gentle_path / task / "transcript.txt"
     stimuli = pd.read_csv(stim_fname, names=["word", "word_low", "onset", "offset"])
-    preproc_stim(stimuli, text_fname)
+    preproc_stim(stimuli, text_fname, lower=lower)
     if add_phones:
         json_name = paths.gentle_path / task / "align.json"
         dico = json.load(open(json_name, "r"))

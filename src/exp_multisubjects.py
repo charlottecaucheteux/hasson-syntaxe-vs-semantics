@@ -10,8 +10,15 @@ from sklearn.preprocessing import RobustScaler, StandardScaler
 from torch_ridge import RidgeCV as TorchRidgeCV
 
 from . import paths
-from .convolve_features import convolve_features
-from .encode import correlate, encode_with_folds
+from .encode import (
+    correlate,
+    encode_with_folds,
+    jr_2v2,
+    t_correlate,
+    v2v,
+    v2v_per_voxel,
+)
+from .fir import convolve_features
 from .get_bold import get_bold
 from .get_features import get_features, load_precomputed_features
 from .preprocess_stim import (
@@ -38,9 +45,11 @@ def run_exp_multisubjects(
     zero_out=None,
     regress_out=None,
     n_delays=4,
+    metric="correlate",
     alpha_per_target=False,
     scaler=RobustScaler(quantile_range=(0.1, 99.9)),
 ):
+    assert metric in ["correlate", "t_correlate", "v2v", "v2v_per_voxel", "jr_2v2"]
     r = {}
     X = {lab: [] for lab in feature_files}
     Y = []
@@ -155,6 +164,17 @@ def run_exp_multisubjects(
         else:
             to_regress_out = None
 
+        if metric == "correlate":
+            corr_function = correlate
+        if metric == "t_correlate":
+            corr_function = t_correlate
+        if metric == "v2v":
+            corr_function = v2v
+        if metric == "v2v_per_voxel":
+            corr_function = v2v_per_voxel
+        if metric == "jr_2v2":
+            corr_function = jr_2v2
+
         r[lab][valid] = encode_with_folds(
             feat,
             Y[:, valid],
@@ -162,6 +182,7 @@ def run_exp_multisubjects(
             n_folds=n_folds,
             to_zero_out=to_zero_out,
             to_regress_out=to_regress_out,
+            corr_function=corr_function,
             estimator=RidgeCV(
                 np.logspace(-1, 8, 10),
                 fit_intercept=fit_intercept,

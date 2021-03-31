@@ -34,9 +34,10 @@ root = Path("/private/home/ccaucheteux/hasson-syntaxe-vs-semantics")
 data = root / "data"
 phone_dic = data / "phone_dic.npy"
 pos_dic = data / "pos_dic.npy"
+gpt2_vocab_spacy_feats = data / "spacy_feats" / "gpt2_vocab_spacy_features.npy"
 
 wiki_seq_len_dic = data / "wiki_seq_len_dic.npy"
-# syn_equiv_dir = data / "syntactic_equivalences" / "10_sampling"
+syn_equiv_dir = data / "syntactic_equivalences"
 syn_equiv_file = str(
     data
     / "syntactic_equivalences"
@@ -51,3 +52,6 @@ median_bolds = data / "bold" / "median_bold_concat_tasks_%s.npy"
 
 # Results
 scores = root / "scores"
+
+# Wiki syntactic embeddings (no brain)
+wiki_bar_embeddings = data / "wiki_bar_embeddings"

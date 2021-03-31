@@ -7,50 +7,69 @@ from src import paths
 from src.get_features import load_precomputed_features
 
 EXP_NAME = "0206_wordembed"
+# EXP_NAME = "0321_hugg_models"
+# EXP_NAME = "0323_hugg_models_bidir"
 
-# NEW with valid sentences
+names = {}
+keys = ["sum-gpt2-%s.equiv-random-mean-10", "sum-gpt2-%s"]
+for key in keys:
+    for layer in range(13):
+        k = key % layer
+        print(k)
+        names[f"phone_{k}"] = ["n_words", "n_phones", "phones", k]
 
-FEATURE_NAMES = [
-    # POS TAG
-    # "postag",
-    # GPT2
-    "sum-gpt2.equiv-random-mean-10",
-    "sum-gpt2",
-    # Low levels
-    "n_words",
-    "n_phones",
-    "phones",
-    "wordpos",
-    "seqlen",
-    # Controls
-    "sum-gpt2..equal_len_sentence",
-    "sum-gpt2..shuffle_in_sentence",
-    "sum-gpt2..shuffle_in_task",
+for key in ["equal_len_sentence", "shuffle_in_sentence", "shuffle_in_task"]:
+    names[f"phone_sum-gpt2-9.{key}"] = [
+        "n_words",
+        "n_phones",
+        "phones",
+        f"sum-gpt2-9.{key}",
+    ]
+
+
+models = [
+    # "sum-albert-base-v1",
+    "sum-bert-base-uncased",
+    # "sum-roberta-base",
+    # "sum-xlnet-base-cased",
 ]
-# FEATURE_NAMES += [f"sum-gpt2.equiv-random-idx-{i}" for i in range(5)]
-
-# FEATURE_NAMES += ["semantic-0.equiv-random-mean-10", "semantic-9.equiv-random-mean-10"]
-
-FEATURE_NAMES = ["sum-gpt2"]
-
-phones = [
-    "n_words",
-    "n_phones",
-    "phones",
+models = [
+    ("bert-base-uncased", 8),  # 12
+    ("xlnet-base-cased", 8),  # 12
+    ("roberta-base", 8),  # 12
+    # "longformer-base-4096",  # 12
+    # "squeezebert-mnli",
+    # "layoutlm-base-uncased",
+    ("albert-base-v1", 8),  # 12
+    ("distilgpt2", 4),  # 6 (layer 4)
+    # ("transfo-xl-wt103", 12), # 18 (-> layer 12?)
+    # ("distilbert-base-uncased", 4),  6 (layer 4)
 ]
 
-names = {
-    "3_phone_features": phones,
-}
-for feature in FEATURE_NAMES:
-    for layer in [0, 9]:
-        label = feature.replace("gpt2", f"gpt2-{layer}")
-        label = label.replace("..", ".")
-        if f"phone_{label}" not in names:
-            names[f"phone_{label}"] = phones + [label]
-        if "equiv" in feature:
-            if f"phone_embedding_{label}" not in names:
-                names[f"phone_embedding_{label}"] = phones + ["sum-gpt2-0", label]
+models = [
+    ("transfo-xl-wt103", 12),  # 18 (-> layer 12?)
+    ("distilbert-base-uncased", 4),  # 6 (layer 4)
+]
+
+names = {"3_phone_features": ["n_words", "n_phones", "phones"]}
+for model, layer in models:
+    for ext in ["", ".equiv-random-mean-10"]:
+        key = "sum-" + model + "-" + str(layer) + ext
+        names[f"phone_{key}"] = [
+            "n_words",
+            "n_phones",
+            "phones",
+            key,
+        ]
+
+names = {}
+for key in ["6-delayed-sum-gpt2-0", "6-delayed-sum-gpt2-0.equiv-random-mean-10"]:
+    names[f"phone_{key}"] = [
+        "n_words",
+        "n_phones",
+        "phones",
+        key,
+    ]
 
 FILES = {}
 for name, files in names.items():

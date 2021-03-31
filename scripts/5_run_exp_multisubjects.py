@@ -10,16 +10,41 @@ from src import paths
 from src.exp_multisubjects import run_exp_multisubjects
 
 # EXP_NAME = "200-concat-multisubjects-0201-valid"
-EXP_NAME = "100-concat-multisubjects-0206-wordemb"
-CONCAT = True
+# EXP_NAME = "100-concat-multisubjects-0206-wordemb"
+EXP_NAME = "concat-multisubjects-0201-valid"
+# EXP_NAME = "icml-review-multisubjects-newmodels-[0321_hugg_models]"
+EXP_NAME = "icml-review-multisubjects-newmodels-[0321_hugg_models_bidir]"
+EXP_NAME = "icml-review-multisubjects-delayed-[0206_wordembed]"
+# EXP_NAME = "icml-review-multisubjects-jr_2v2-[0206_wordembed]"
+# EXP_NAME = "icml-review-multisubjects-VALID-v2v_per_voxel-[0206_wordembed]"
+
+# EXP_NAME = "icml-review-multisubjects-v2v-[0206_wordembed]"
+# EXP_NAME = "icml-review-multisubjects-v2v-[0206_wordembed]-10folds-concat"
+
 DIR_NAME = EXP_NAME
 # FEATURE_FOLDER = "0201_wiki_valid"
 FEATURE_FOLDER = "0206_wordembed"
+# FEATURE_FOLDER = "0321_hugg_models"
+# FEATURE_FOLDER = "0323_hugg_models_bidir"
+
+MAX_RUN = None
+RUN_PARAMS = dict(
+    fit_intercept=True,
+    n_folds=100,
+    average_folds=False,
+    high_pass=None,
+    convolve_model="fir",
+    alpha_per_target=True,
+    metric="correlate",  # v2v
+)
 
 
-TEST_LOCAL = False
+TEST_LOCAL = True
+FILTER_ON_EXIST = False
 
 FEATURES = [
+    "phone_sum-gpt2-9",
+    "phone_sum-gpt2-9.equiv-random-mean-10",
     # Base
     "3_phone_features",
     # "phone_postag",
@@ -28,9 +53,7 @@ FEATURES = [
     "phone_sum-gpt2-0.equiv-random-mean-10",
     #  "phone_semantic-0.equiv-random-mean-10",
     # Layer 9
-    "phone_sum-gpt2-9",
-    "phone_sum-gpt2-9.equiv-random-mean-10",
-    #   "phone_semantic-9.equiv-random-mean-10",
+    # "phone_semantic-9.equiv-random-mean-10",
     # "phone_embedding_semantic-9.equiv-random-mean-10",
     # Controls
     # "phone_sum-gpt2-9.equal_len_sentence",
@@ -47,23 +70,65 @@ FEATURES += [
     "phone_embedding_sum-gpt2-9.equiv-random-mean-10",
 ]
 
+
+FEATURES = ["3_phone_features"]
+for layer in range(13):
+    FEATURES.append(f"phone_sum-gpt2-{layer}.equiv-random-mean-10")
+    FEATURES.append(f"phone_sum-gpt2-{layer}")
+
+FEATURES += [
+    "phone_sum-gpt2-9.equal_len_sentence",
+    "phone_sum-gpt2-9.shuffle_in_sentence",
+    "phone_sum-gpt2-9.shuffle_in_task",
+]
+
+FEATURES = [
+    "3_phone_features",
+    # Layer 0
+    "phone_sum-gpt2-0",
+    "phone_sum-gpt2-0.equiv-random-mean-10",
+    # Layer 9
+    "phone_sum-gpt2-9",
+    "phone_sum-gpt2-9.equiv-random-mean-10",
+    # "phone_embedding_sum-gpt2-9.equiv-random-mean-10",
+]
+
+
+# FEATURES = ["3_phone_features"]
+models = [
+    ("bert-base-uncased", 8),  # 12
+    ("xlnet-base-cased", 8),  # 12
+    ("roberta-base", 8),  # 12
+    # "longformer-base-4096",  # 12
+    # "squeezebert-mnli",
+    # "layoutlm-base-uncased",
+    ("albert-base-v1", 8),  # 12
+    ("distilgpt2", 4),  # 6 (layer 4)
+    ("transfo-xl-wt103", 12),  # 18 (-> layer 12?)
+    ("distilbert-base-uncased", 4),  # 6 (layer 4)
+]
+
+# for model, layer in models:
+#     k = f"phone_sum-{model}-{layer}"
+#     FEATURES.extend([k, f"{k}.equiv-random-mean-10"])
+
+FEATURES = [
+    "6-delayed-sum-gpt2-0",
+    "6-delayed-sum-gpt2-0.equiv-random-mean-10",
+    "phone_6-delayed-sum-gpt2-0",
+    "phone_6-delayed-sum-gpt2-0.equiv-random-mean-10",
+]
+
+# FEATURES = ["sum-gpt2-0", "6-delayed-sum-gpt2-0"]
+
 # OTHER_TASK = [False, False] + [True] * len(LAYERS) + [False] * len(FEATURES)
+CONCAT = True
 OTHER_TASK = [False] * len(FEATURES)
 if CONCAT:
     REGRESS_OUT = [0] * len(FEATURES)
 else:
     REGRESS_OUT = [0] + [3] * len(FEATURES)
 
-
-MAX_RUN = None
-RUN_PARAMS = dict(
-    fit_intercept=True,
-    n_folds=100,
-    average_folds=False,
-    high_pass=None,
-    convolve_model="fir",
-    alpha_per_target=True,
-)
 
 AGG_BOLD = "mean"
 
@@ -137,23 +202,23 @@ if __name__ == "__main__":
             ext = "other_task" if other_task else ""
             save_file = save_dir / (feat + ext) / f"{hemi}.npy"
 
-            # if not save_file.is_file():
+            if not save_file.is_file() or not FILTER_ON_EXIST:
 
-            # Check files
-            for task in tasks:
-                assert Path(str(feature_file) % task).is_file(), (
-                    str(feature_file) % task
+                # Check files
+                for task in tasks:
+                    assert Path(str(feature_file) % task).is_file(), (
+                        str(feature_file) % task
+                    )
+                save_file.parent.mkdir(exist_ok=True, parents=True)
+                params.append(
+                    dict(
+                        feature_file=feature_file,
+                        save_file=save_file,
+                        hemi=hemi,
+                        index_regress_out=regress_out,
+                        other_task=other_task,
+                    )
                 )
-            save_file.parent.mkdir(exist_ok=True, parents=True)
-            params.append(
-                dict(
-                    feature_file=feature_file,
-                    save_file=save_file,
-                    hemi=hemi,
-                    index_regress_out=regress_out,
-                    other_task=other_task,
-                )
-            )
 
     print(FEATURES)
 
@@ -162,7 +227,12 @@ if __name__ == "__main__":
     df.to_csv(save_dir / "results_path.csv")
     np.save(
         save_dir / "params.npy",
-        {"FEATURES": FEATURES, "AGG_BOLD": AGG_BOLD, **RUN_PARAMS},
+        {
+            "FEATURES": FEATURES,
+            "FEATURE_FOLDER": FEATURE_FOLDER,
+            "AGG_BOLD": AGG_BOLD,
+            **RUN_PARAMS,
+        },
     )
 
     print(
@@ -180,7 +250,7 @@ if __name__ == "__main__":
         # comment="ICML",
         slurm_array_parallelism=100,
         timeout_min=60 * 72,
-        cpus_per_task=8 * 2,
+        cpus_per_task=8 * 4,
         name=name,
         # cpus_per_task=2,
     )

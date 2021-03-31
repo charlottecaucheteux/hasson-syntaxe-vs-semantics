@@ -4,15 +4,12 @@ import re
 import numpy as np
 import spacy
 import torch
+from wordfreq import zipf_frequency
 
 from . import paths
 from .constants import POSSIBLE_FEATURES, TRANSFORMER_NAMES
 from .get_control_features import add_controls
-
-# from .manning_proj_embeddings import (
-#    get_manning_proj_embeddings,
-#    get_ptpb_transformer_embeddings,
-# )
+from .get_lexical_phone_error import get_lexical_phone_error, get_phone_freq
 from .preprocess_stim import (
     format_text,
     format_tokens,
@@ -22,6 +19,12 @@ from .preprocess_stim import (
     get_stimulus,
 )
 from .transformer_embeddings import get_transformer_embeddings
+from .transformer_errors import get_transformer_errors
+
+# from .manning_proj_embeddings import (
+#    get_manning_proj_embeddings,
+#    get_ptpb_transformer_embeddings,
+# )
 
 
 def load_precomputed_features(task, feature_files, idx=None, ext_name="features"):
@@ -30,40 +33,35 @@ def load_precomputed_features(task, feature_files, idx=None, ext_name="features"
         feat = torch.load(file)
         if idx is not None:
             feat = feat[idx]
+            feat = torch.FloatTensor(np.nan_to_num(feat.numpy()).astype(float))
         features.append(feat)
     return features
 
 
-def get_base_embeddings(tokens, model_name):
-    print("np.array(tokens) shape", np.array(tokens).shape)
-    tokens = format_tokens(np.array(tokens))
-    print("np.array(tokens) shape", np.array(tokens).shape)
+def get_gpt2_errors(
+    tokens,
+    err_names=["lex", "sem", "syn"],
+    random=False,
+):
 
-    if model_name in [
-        "gpt2",
-        "bert",
-        "bert-large",
-        "sum-gpt2",
-        "sum-bert",
-        "sum-bert-large",
-        "last-gpt2",
-        "last-bert",
-        "last-bert-large",
-    ]:
-        if model_name.startswith("sum-"):
-            agg = "sum"
-            model_name = model_name.split("sum-")[1]
-        elif model_name.startswith("last-"):
-            agg = "last"
-            model_name = model_name.split("last-")[1]
-        else:
-            agg = "mean"
+    tokens = format_tokens(np.array(tokens), lower=False)
 
-        feats = get_transformer_embeddings(
-            tokens,
-            model_name=TRANSFORMER_NAMES[model_name],
-            agg=agg,
-        )
+    feats = get_transformer_errors(
+        tokens,
+        model_name="gpt2",
+        err_names=err_names,
+        random=random,
+    )
+    print("get_gpt2_errors", feats.shape)
+    feats = feats[:, :, None]
+
+    return feats, err_names
+
+
+def get_base_embeddings(tokens, model_name, cuda=False, force_causal=False):
+    print("np.array(tokens) shape", np.array(tokens).shape)
+    tokens = format_tokens(np.array(tokens), lower=True)
+    print("np.array(tokens) shape", np.array(tokens).shape)
 
     if model_name == "manning":
         feats = get_manning_proj_embeddings(tokens)[None]
@@ -77,6 +75,35 @@ def get_base_embeddings(tokens, model_name):
         feats = [np.stack([i.vector for i in nlp(str(w))]).mean(0) for w in tokens]
         feats = np.stack(feats)[None]
         feats = torch.FloatTensor(feats)
+
+    else:
+        # if model_name in [
+        # "gpt2",
+        # "bert",
+        # "bert-large",
+        # "sum-gpt2",
+        # "sum-bert",
+        # "sum-bert-large",
+        # "last-gpt2",
+        # "last-bert",
+        # "last-bert-large"
+
+        if model_name.startswith("sum-"):
+            agg = "sum"
+            model_name = model_name.split("sum-")[1]
+        elif model_name.startswith("last-"):
+            agg = "last"
+            model_name = model_name.split("last-")[1]
+        else:
+            agg = "mean"
+
+        feats = get_transformer_embeddings(
+            tokens,
+            model_name=TRANSFORMER_NAMES[model_name],
+            cuda=cuda,
+            force_causal=force_causal,
+            agg=agg,
+        )
     return feats
 
 
@@ -84,6 +111,8 @@ def get_average_embeddings(
     shuffleds,
     model_name,
     remove_punc=False,
+    cuda=False,
+    force_causal=False,
 ):  # FIXEME BETTER DEAL WITH PUNC
     mean_hiddens = []
     for toks in shuffleds:
@@ -91,7 +120,9 @@ def get_average_embeddings(
             toks = np.array(
                 [" ".join([w[0] for w in gentle_tokenizer(i)]).lower() for i in toks]
             ).astype(toks.dtype)
-        hiddens = get_base_embeddings(toks, model_name)
+        hiddens = get_base_embeddings(
+            toks, model_name, cuda=cuda, force_causal=force_causal
+        )
         mean_hiddens.append(hiddens)
     mean_hiddens = torch.stack(mean_hiddens).mean(0)
     return mean_hiddens
@@ -101,12 +132,15 @@ def get_features(
     task,
     names=["wordpos", "seqlen", "gpt2", "bert"],
     equiv_sampling_method="order",
+    err_names=["lex", "sem", "syn", "phon"],
+    cuda=False,
+    force_causal=False,
 ):
 
     assert equiv_sampling_method in ["order", "random", "order_random"]
     # assert np.all([i in POSSIBLE_FEATURES for i in names])
     add_pos = np.any([name == "postag" for name in names])
-    stimulus = get_stimulus(task, add_phones=True, add_pos=add_pos)
+    stimulus = get_stimulus(task, add_phones=True, add_pos=add_pos, lower=False)
 
     labels = []
     features = []
@@ -152,6 +186,37 @@ def get_features(
             )
             feats = feats[None]
 
+        elif model_name == "gpt2-errors":
+            tokens = stimulus.word_raw.values
+            feats, labs = get_gpt2_errors(tokens, err_names=err_names)
+            print("get_gpt2_errors", feats.shape)
+
+        elif model_name == "random-gpt2-errors":
+            tokens = stimulus.word_raw.values
+            feats, labs = get_gpt2_errors(tokens, err_names=err_names, random=True)
+            labs = [f"random-{lab}" for lab in labs]
+            print("get_gpt2_errors", feats.shape)
+
+        elif model_name == "freq":
+            tokens = stimulus.word_raw.values
+            freq = [zipf_frequency(w, "en") for w in tokens]
+            feats = torch.FloatTensor(freq)[None, :, None]
+            labs = ["freq"]
+
+        elif model_name == "phon_freq":  # frequency
+            freq = get_phone_freq(stimulus, agg="mean")
+            feats = torch.FloatTensor(freq)[None, :, None]
+            labs = ["phon_freq"]
+
+        elif model_name == "phonfreq":  # suprisal computed out of word frequency
+            freq = get_lexical_phone_error(stimulus, log=True)
+            feats = torch.FloatTensor(freq)[None, :, None]
+            labs = ["phonfreq"]
+
+        elif model_name == "wordrate":
+            feats = torch.ones((1, len(stimulus), 1)).float()
+            labs = ["wordrate"]
+
         else:  # Transformer features
 
             # Control tokens (if necessary)
@@ -178,7 +243,9 @@ def get_features(
                         ]
                     ).astype(tokens.dtype)
                     suffix = ".nopunc"
-                feats = get_base_embeddings(tokens, model_name)
+                feats = get_base_embeddings(
+                    tokens, model_name, cuda=cuda, force_causal=force_causal
+                )
                 if len(feats) > 0:
                     labs = [
                         f"{model_name}-{i}{suffix}{last_suffix}"
@@ -220,6 +287,8 @@ def get_features(
                     equival,
                     model_name,
                     remove_punc=remove_punc,
+                    cuda=cuda,
+                    force_causal=force_causal,
                 )  # DIRTY DIRTY
 
                 if len(feats) > 0:

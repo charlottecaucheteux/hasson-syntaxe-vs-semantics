@@ -91,7 +91,10 @@ class Dataset:
         return task, subtask, group, subject, stim_label
 
 
-def get_task_df(task_exclude=["notthefalllongscram", "notthefallshortscram", "schema"]):
+def get_task_df(
+    task_exclude=["notthefalllongscram", "notthefallshortscram", "schema"],
+    keep_milk=False,
+):
     # Matching between task and subjects
     df = pd.read_csv(paths.base_dir / "participants.tsv", sep="\t")
     df = df.astype("str")
@@ -100,8 +103,8 @@ def get_task_df(task_exclude=["notthefalllongscram", "notthefallshortscram", "sc
         for task, condition, comprehension in zip(
             row.task.split(","), row.condition.split(","), row.comprehension.split(",")
         ):
-            if task == "milkyway":
-                task == task + condition
+            if task == "milkyway" and keep_milk:
+                task = task + condition
             if task in task_exclude:
                 continue
             if comprehension != "n/a":
@@ -172,6 +175,7 @@ def get_checked_tasks():
         tasks[key]["onset"] = 1  # not aligned with text
     for key in ["tunnel"]:
         tasks[key]["onset"] = 2
+
     checked_tasks = {k: v for k, v in tasks.items() if "onset" in v}
     checked_tasks = pd.DataFrame(checked_tasks).T.reset_index()
     checked_tasks = checked_tasks.rename(columns={"index": "audio_task"})

@@ -11,11 +11,13 @@ from src.exp_multitasks import run_exp_multitasks
 from src.task_dataset import get_task_df
 
 EXP_NAME = "regressout-single-subjects-0209"
+EXP_NAME = "concat-single-subjects-0209"
+EXP_NAME = "icml-review-concat-singlesubjects-[0206_wordembed]"
 DIR_NAME = EXP_NAME
 FEATURE_FOLDER = "0206_wordembed"
 LOOP = 0
 
-TEST_LOCAL = False
+TEST_LOCAL = True
 
 FEATURES = [
     # Base
@@ -42,10 +44,33 @@ FEATURES = [
     "3_phone_features",
     # Layer 0
     "phone_sum-gpt2-0",
+    "sum-gpt2-0",
+    "phone_sum-gpt2-0.equiv-random-mean-10",
+    "sum-gpt2-0.equiv-random-mean-10",
+    # Layer 9
+    "phone_sum-gpt2-9",
+    "sum-gpt2-9",
+    "phone_sum-gpt2-9.equiv-random-mean-10",
+    "sum-gpt2-9.equiv-random-mean-10",
+]
+
+FEATURES += [
+    "phone_embedding_sum-gpt2-9.equiv-random-mean-10",
+]
+
+FEATURES = [
+    # Base
+    "3_phone_features",
+    # Layer 0
+    "phone_sum-gpt2-0",
     "phone_sum-gpt2-0.equiv-random-mean-10",
     # Layer 9
     "phone_sum-gpt2-9",
     "phone_sum-gpt2-9.equiv-random-mean-10",
+    # Controls
+    # "phone_sum-gpt2-9.equal_len_sentence",
+    # "phone_sum-gpt2-9.shuffle_in_sentence",
+    # "phone_sum-gpt2-9.shuffle_in_task",
 ]
 
 FEATURES += [
@@ -53,7 +78,8 @@ FEATURES += [
 ]
 
 OTHER_TASK = [False] * len(FEATURES)
-REGRESS_OUT = [0] + [3] * len(FEATURES)
+# REGRESS_OUT = [0] + [3] * len(FEATURES)
+REGRESS_OUT = [0] * len(FEATURES)
 # REGRESS_OUT = [0] * len(FEATURES)
 
 MAX_RUN = None
@@ -159,27 +185,27 @@ if __name__ == "__main__":
                 save_file = save_dir / (feat + ext) / f"{subject}_{hemi}.npy"
                 save_file.parent.mkdir(exist_ok=True, parents=True)
 
-                if not save_file.is_file():
+                # if not save_file.is_file():
 
-                    # Check files
-                    for task in tasks:
-                        assert Path(str(feature_file) % task).is_file(), (
-                            str(feature_file) % task
-                        )
-
-                    save_file.parent.mkdir(exist_ok=True, parents=True)
-                    params.append(
-                        dict(
-                            subject=subject,
-                            feature_file=feature_file,
-                            save_file=save_file,
-                            hemi=hemi,
-                            index_regress_out=regress_out,
-                            other_task=other_task,
-                            tasks=",".join(tasks),
-                            n_tasks=len(tasks),
-                        )
+                # Check files
+                for task in tasks:
+                    assert Path(str(feature_file) % task).is_file(), (
+                        str(feature_file) % task
                     )
+
+                save_file.parent.mkdir(exist_ok=True, parents=True)
+                params.append(
+                    dict(
+                        subject=subject,
+                        feature_file=feature_file,
+                        save_file=save_file,
+                        hemi=hemi,
+                        index_regress_out=regress_out,
+                        other_task=other_task,
+                        tasks=",".join(tasks),
+                        n_tasks=len(tasks),
+                    )
+                )
 
     print(FEATURES)
 
@@ -204,8 +230,8 @@ if __name__ == "__main__":
         name = EXP_NAME
         executor = AutoExecutor(f"submitit_jobs/submitit_jobs/{name}")
         executor.update_parameters(
-            slurm_partition="learnfair",
-            slurm_array_parallelism=70,
+            slurm_partition="dev",
+            slurm_array_parallelism=100,
             timeout_min=60 * 72,
             # cpus_per_tasks=3,
             name=name,

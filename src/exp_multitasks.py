@@ -1,13 +1,13 @@
 from pathlib import Path
 
 import numpy as np
-from encoding.fmri import convolve_features
 from nilearn import signal
 from sklearn.linear_model import RidgeCV
-from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import RobustScaler, StandardScaler
 
 from . import paths
 from .encode import encode_with_folds
+from .fir import convolve_features
 from .get_bold import get_bold
 from .get_features import load_precomputed_features
 from .preprocess_stim import add_pulses_to_stim, get_stimulus
@@ -33,6 +33,7 @@ def run_exp_multitasks(
     average_folds=True,
     n_delays=4,
     scaler=RobustScaler(quantile_range=(0.1, 99.9)),
+    x_scaler=StandardScaler(),
 ):
     df_task = get_task_df()
     df_task = df_task.query("subject==@subject")
@@ -118,11 +119,11 @@ def run_exp_multitasks(
             # Preprocess feats
             for lab, feat in zip(feature_files, features):
                 feat = np.array(feat)
-                feat = scaler.fit_transform(feat)
+                feat = x_scaler.fit_transform(feat)
                 convolved = convolve_features(
                     events, feat, model=convolve_model, n_delays=n_delays
                 )
-                convolved = scaler.fit_transform(convolved)
+                convolved = x_scaler.fit_transform(convolved)
                 X[lab].append(convolved)
 
         except Exception as e:

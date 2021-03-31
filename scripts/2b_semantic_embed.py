@@ -39,6 +39,19 @@ def substract_features(files, audio_task):
     return feats
 
 
+def delay_features(files):
+    # Extract features from stimulus
+    assert len(files) == 2
+    task_files = [Path(str(f) % str(audio_task)) for f in files]
+    assert np.all(
+        [f.is_file() for f in task_files]
+    ), f"!!!!!! NOT EXIXTS : {task_files}"
+
+    feats = load_precomputed_features(audio_task, task_files, idx=None)
+    feats = torch.concatenate([torch.roll(feats, shifts=6, dims=1), axis=-1] # add the words BEFORE the current word
+    feats = torch.FloatTensor(feats)
+    return feats
+
 if __name__ == "__main__":
 
     save_dir = paths.embeddings / EXP_NAME
@@ -53,5 +66,6 @@ if __name__ == "__main__":
             # if not save_file.is_file():
             print(save_file)
             feat = substract_features(files, task)
+            #feat = delay_features(files, task)
             save_file.parent.mkdir(exist_ok=True, parents=True)
             torch.save(feat, save_file)

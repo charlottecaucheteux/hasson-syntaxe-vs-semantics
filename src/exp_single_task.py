@@ -1,13 +1,13 @@
 from pathlib import Path
 
 import numpy as np
-from encoding.fmri import convolve_features
 from nilearn import signal
 from sklearn.linear_model import RidgeCV
 from sklearn.preprocessing import RobustScaler
 
 from . import paths
 from .encode import encode_with_folds
+from .fir import convolve_features
 from .get_bold import get_bold
 from .get_features import load_precomputed_features
 from .preprocess_stim import add_pulses_to_stim, get_stimulus
@@ -38,7 +38,7 @@ def run_exp_single_tasks(
     scaler=RobustScaler(quantile_range=(0.1, 99.9)),
 ):
 
-    df_task = get_task_df()
+    df_task = get_task_df(keep_milk=True)
     df_task = df_task.query("subject==@subject and audio_task==@audio_task")
     print(df_task)
     row = df_task.iloc[0]

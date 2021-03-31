@@ -1,7 +1,8 @@
 import numpy as np
 import torch
 from pytorch_pretrained_bert import BertModel
-from structural_probes import probe
+
+# from structural_probes import probe
 from transformers import AutoTokenizer
 
 from . import paths
